@@ -56,8 +56,15 @@ app.post('/login', (req, res) => {
 
     res.json({
       success: true,
-      user: user
+      user: {
+        id: user.id_usuario,
+        usuario: user.nombre_usuario,
+        nombre: user.nombre_completo,
+        edad: user.edad,
+        genero: user.genero
+      }
     });
+
   });
 });
 
