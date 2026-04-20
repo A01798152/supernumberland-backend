@@ -29,18 +29,31 @@ app.get('/usuarios', (req, res) => {
 
 
 // 🔐 LOGIN (CON BCRYPT)
+// 🔐 LOGIN (CON DEBUG + FIX)
 app.post('/login', async (req, res) => {
-  const { usuario, contrasena } = req.body;
+  let { usuario, contrasena } = req.body;
+
+  // 🔥 LIMPIAR INPUT (CLAVE)
+  usuario = usuario.trim();
+  contrasena = contrasena.trim();
 
   console.log("🔐 LOGIN REQUEST:");
   console.log("Usuario:", usuario);
-  console.log("Password:", "[" + contrasena + "]");
 
-  try {
-    const [result] = await db.promise().query(
-      "SELECT * FROM Usuario WHERE nombre_usuario = ?",
-      [usuario]
-    );
+  console.log("Password RAW:", contrasena);
+  console.log("Length:", contrasena.length);
+  console.log("Chars:", [...contrasena]);
+
+  const sql = `
+    SELECT * FROM Usuario 
+    WHERE nombre_usuario = ?
+  `;
+
+  db.query(sql, [usuario], async (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json(err);
+    }
 
     if (result.length === 0) {
       return res.json({ success: false, message: "Usuario no encontrado" });
@@ -48,33 +61,40 @@ app.post('/login', async (req, res) => {
 
     const user = result[0];
 
-    console.log("📦 HASH EN BD:", user.contrasena);
+    try {
+      console.log("HASH EN DB:", user.contrasena);
 
-    const passwordCorrecta = await bcrypt.compare(contrasena, user.contrasena);
+      // 🔥 COMPARACIÓN
+      const passwordCorrecta = await bcrypt.compare(contrasena, user.contrasena);
 
-    console.log("🧪 RESULTADO BCRYPT:", passwordCorrecta);
+      console.log("RESULTADO BCRYPT:", passwordCorrecta);
 
-    if (!passwordCorrecta) {
-      return res.json({ success: false, message: "Contraseña incorrecta" });
-    }
+      // 🔥 TEST DIRECTO (debug extremo)
+      const test = await bcrypt.compare("1234", user.contrasena);
+      console.log("TEST DIRECTO 1234:", test);
 
-    console.log("✅ Login correcto");
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id_usuario,
-        usuario: user.nombre_usuario,
-        nombre: user.nombre_completo,
-        edad: user.edad,
-        genero: user.genero
+      if (!passwordCorrecta) {
+        return res.json({ success: false, message: "Contraseña incorrecta" });
       }
-    });
 
-  } catch (error) {
-    console.error("❌ ERROR LOGIN:", error);
-    res.status(500).json({ success: false });
-  }
+      console.log("✅ Login correcto");
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id_usuario,
+          usuario: user.nombre_usuario,
+          nombre: user.nombre_completo,
+          edad: user.edad,
+          genero: user.genero
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ ERROR BCRYPT:", error);
+      res.status(500).json({ success: false });
+    }
+  });
 });
 
 
