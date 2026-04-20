@@ -33,6 +33,9 @@ app.post('/login', async (req, res) => {
   const { usuario } = req.body;
   const contrasena = req.body.contrasena.trim();
 
+  console.log("👉 [" + contrasena + "]");
+  console.log("👉 length:", contrasena.length);
+
   const sql = `
     SELECT * FROM Usuario 
     WHERE nombre_usuario = ?
@@ -158,6 +161,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
-
-console.log("👉 [" + contrasena + "]");
-console.log("👉 length:", contrasena.length);
