@@ -28,10 +28,10 @@ app.get('/usuarios', (req, res) => {
 });
 
 
-// 🔐 LOGIN
 // 🔐 LOGIN (CON BCRYPT)
 app.post('/login', async (req, res) => {
-  const { usuario, contrasena } = req.body;
+  const { usuario } = req.body;
+  const contrasena = req.body.contrasena.trim();
 
   const sql = `
     SELECT * FROM Usuario 
@@ -117,7 +117,7 @@ app.post('/register', async (req, res) => {
 
   try {
     // 🔐 ENCRIPTAR CONTRASEÑA
-    const hashedPassword = await bcrypt.hash(contrasena, 10);
+    const hashedPassword = await bcrypt.hash(contrasena.trim(), 10);
 
     const sql = `
       INSERT INTO Usuario 
