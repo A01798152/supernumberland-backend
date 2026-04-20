@@ -1,3 +1,4 @@
+const bcrypt = require('bcrypt');
 const express = require('express');
 const cors = require('cors');
 
@@ -28,7 +29,7 @@ app.get('/usuarios', (req, res) => {
 
 
 // 🔐 LOGIN
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { usuario, contrasena } = req.body;
 
   const sql = `
@@ -36,7 +37,7 @@ app.post('/login', (req, res) => {
     WHERE nombre_usuario = ?
   `;
 
-  db.query(sql, [usuario], (err, result) => {
+  db.query(sql, [usuario], async (err, result) => {
     if (err) {
       console.error(err);
       return res.status(500).json(err);
@@ -48,11 +49,14 @@ app.post('/login', (req, res) => {
 
     const user = result[0];
 
-    if (user.contrasena !== contrasena) {
+    // 🔐 COMPARAR PASSWORD
+    const match = await bcrypt.compare(contrasena, user.contrasena);
+
+    if (!match) {
       return res.json({ success: false, message: "Contraseña incorrecta" });
     }
 
-    console.log("✅ Login correcto");
+    console.log("✅ Login correcto con hash");
 
     res.json({
       success: true,
@@ -64,7 +68,6 @@ app.post('/login', (req, res) => {
         genero: user.genero
       }
     });
-
   });
 });
 
@@ -91,7 +94,7 @@ app.get('/preguntas/:nivel', (req, res) => {
 
 
 // 🔥 REGISTER (CORREGIDO)
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
 
   console.log("🔥 DATOS RECIBIDOS:", req.body);
 
@@ -105,31 +108,40 @@ app.post('/register', (req, res) => {
     alcaldia
   } = req.body;
 
-  const sql = `
-    INSERT INTO Usuario 
-    (nombre_usuario, contrasena, nombre_completo, edad, genero, actividad, alcaldia)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
+  try {
+    // 🔐 ENCRIPTAR
+    const hashedPassword = await bcrypt.hash(contrasena, 10);
 
-  db.query(sql, [
-    usuario,
-    contrasena,
-    nombre_completo,
-    edad,
-    genero,
-    actividad,
-    alcaldia
-  ], (err, result) => {
+    const sql = `
+      INSERT INTO Usuario 
+      (nombre_usuario, contrasena, nombre_completo, edad, genero, actividad, alcaldia)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
 
-    if (err) {
-      console.error("❌ ERROR INSERT:", err);
-      return res.status(500).json({ success: false });
-    }
+    db.query(sql, [
+      usuario,
+      hashedPassword, // 🔥 aquí va encriptada
+      nombre_completo,
+      edad,
+      genero,
+      actividad,
+      alcaldia
+    ], (err, result) => {
 
-    console.log("✅ Usuario insertado correctamente");
+      if (err) {
+        console.error("❌ ERROR INSERT:", err);
+        return res.status(500).json({ success: false });
+      }
 
-    res.json({ success: true });
-  });
+      console.log("✅ Usuario insertado con contraseña encriptada");
+
+      res.json({ success: true });
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR HASH:", error);
+    res.status(500).json({ success: false });
+  }
 });
 
 
