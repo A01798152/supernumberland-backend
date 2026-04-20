@@ -103,7 +103,11 @@ app.post('/register', async (req, res) => {
 
   try {
     // 🔐 ENCRIPTAR CONTRASEÑA
-    const hashedPassword = await bcrypt.hash(contrasena.trim(), 10);
+    console.log("🔐 PASSWORD ORIGINAL:", contrasena);
+
+    const hashedPassword = await bcrypt.hash(contrasena, 10);
+
+    console.log("🔐 PASSWORD HASH:", hashedPassword);
 
     const sql = `
       INSERT INTO Usuario 
