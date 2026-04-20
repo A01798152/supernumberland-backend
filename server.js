@@ -33,8 +33,6 @@ app.post('/login', async (req, res) => {
   const { usuario } = req.body;
   const contrasena = req.body.contrasena.trim();
 
-  console.log("👉 [" + contrasena + "]");
-  console.log("👉 length:", contrasena.length);
 
   const sql = `
     SELECT * FROM Usuario 
@@ -55,7 +53,7 @@ app.post('/login', async (req, res) => {
 
     try {
       // 🔥 COMPARAR CONTRASEÑA ENCRIPTADA
-      const passwordCorrecta = await bcrypt.compare(contrasena, user.contrasena);
+      const passwordCorrecta = await bcrypt.compare(contrasena.trim(), user.contrasena);
 
       if (!passwordCorrecta) {
         return res.json({ success: false, message: "Contraseña incorrecta" });
