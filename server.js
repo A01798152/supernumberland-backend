@@ -36,19 +36,13 @@ app.post('/login', async (req, res) => {
   console.log("Usuario:", usuario);
   console.log("Password:", "[" + contrasena + "]");
 
-  const sql = `
-    SELECT * FROM Usuario 
-    WHERE nombre_usuario = ?
-  `;
-
-  db.query(sql, [usuario], async (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json(err);
-    }
+  try {
+    const [result] = await db.promise().query(
+      "SELECT * FROM Usuario WHERE nombre_usuario = ?",
+      [usuario]
+    );
 
     if (result.length === 0) {
-      console.log("❌ Usuario no encontrado");
       return res.json({ success: false, message: "Usuario no encontrado" });
     }
 
@@ -56,33 +50,31 @@ app.post('/login', async (req, res) => {
 
     console.log("📦 HASH EN BD:", user.contrasena);
 
-    try {
-      const passwordCorrecta = await bcrypt.compare(contrasena, user.contrasena);
+    const passwordCorrecta = await bcrypt.compare(contrasena, user.contrasena);
 
-      console.log("🧪 RESULTADO BCRYPT:", passwordCorrecta);
+    console.log("🧪 RESULTADO BCRYPT:", passwordCorrecta);
 
-      if (!passwordCorrecta) {
-        return res.json({ success: false, message: "Contraseña incorrecta" });
-      }
-
-      console.log("✅ Login correcto");
-
-      res.json({
-        success: true,
-        user: {
-          id: user.id_usuario,
-          usuario: user.nombre_usuario,
-          nombre: user.nombre_completo,
-          edad: user.edad,
-          genero: user.genero
-        }
-      });
-
-    } catch (error) {
-      console.error("❌ ERROR BCRYPT:", error);
-      res.status(500).json({ success: false });
+    if (!passwordCorrecta) {
+      return res.json({ success: false, message: "Contraseña incorrecta" });
     }
-  });
+
+    console.log("✅ Login correcto");
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id_usuario,
+        usuario: user.nombre_usuario,
+        nombre: user.nombre_completo,
+        edad: user.edad,
+        genero: user.genero
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR LOGIN:", error);
+    res.status(500).json({ success: false });
+  }
 });
 
 
