@@ -109,7 +109,7 @@ app.post('/register', async (req, res) => {
   } = req.body;
 
   try {
-    // 🔐 ENCRIPTAR
+    // 🔐 ENCRIPTAR CONTRASEÑA
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
     const sql = `
@@ -120,7 +120,7 @@ app.post('/register', async (req, res) => {
 
     db.query(sql, [
       usuario,
-      hashedPassword, // 🔥 aquí va encriptada
+      hashedPassword, // 👈 AQUÍ CAMBIA
       nombre_completo,
       edad,
       genero,
