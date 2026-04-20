@@ -29,6 +29,7 @@ app.get('/usuarios', (req, res) => {
 
 
 // 🔐 LOGIN
+// 🔐 LOGIN (CON BCRYPT)
 app.post('/login', async (req, res) => {
   const { usuario, contrasena } = req.body;
 
@@ -49,25 +50,31 @@ app.post('/login', async (req, res) => {
 
     const user = result[0];
 
-    // 🔐 COMPARAR PASSWORD
-    const match = await bcrypt.compare(contrasena, user.contrasena);
+    try {
+      // 🔥 COMPARAR CONTRASEÑA ENCRIPTADA
+      const passwordCorrecta = await bcrypt.compare(contrasena, user.contrasena);
 
-    if (!match) {
-      return res.json({ success: false, message: "Contraseña incorrecta" });
-    }
-
-    console.log("✅ Login correcto con hash");
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id_usuario,
-        usuario: user.nombre_usuario,
-        nombre: user.nombre_completo,
-        edad: user.edad,
-        genero: user.genero
+      if (!passwordCorrecta) {
+        return res.json({ success: false, message: "Contraseña incorrecta" });
       }
-    });
+
+      console.log("✅ Login correcto");
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id_usuario,
+          usuario: user.nombre_usuario,
+          nombre: user.nombre_completo,
+          edad: user.edad,
+          genero: user.genero
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ ERROR BCRYPT:", error);
+      res.status(500).json({ success: false });
+    }
   });
 });
 
