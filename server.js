@@ -10,7 +10,7 @@ const db = require('./db');
 
 // TEST
 app.get('/test', (req, res) => {
-  res.json({ mensaje: "API funcionando 🚀" });
+  res.json({ mensaje: "API funcionando" });
 });
 
 
@@ -38,7 +38,6 @@ app.post('/login', (req, res) => {
 
     const user = result[0];
 
-    // COMPARACIÓN DIRECTA
     if (user.contrasena !== contrasena) {
       return res.json({ success: false, message: "Contraseña incorrecta" });
     }
@@ -50,7 +49,9 @@ app.post('/login', (req, res) => {
         usuario: user.nombre_usuario,
         nombre: user.nombre_completo,
         edad: user.edad,
-        genero: user.genero
+        genero: user.genero,
+        alcaldia: user.alcaldia,
+        actividad: user.actividad 
       }
     });
   });
@@ -59,20 +60,32 @@ app.post('/login', (req, res) => {
 
 // REGISTER
 app.post('/register', (req, res) => {
-  let { usuario, contrasena, nombre_completo, edad, genero, alcaldia } = req.body;
+  let { usuario, contrasena, nombre_completo, edad, genero, alcaldia, actividad } = req.body;
 
   usuario = usuario.trim();
   contrasena = contrasena.trim();
-  alcaldia = alcaldia ? alcaldia.trim() : "";
+  nombre_completo = nombre_completo?.trim() || "";
+  alcaldia = alcaldia?.trim() || "";
+  actividad = actividad?.trim() || "";
+
 
   const sql = `
-    INSERT INTO Usuario (nombre_usuario, contrasena, nombre_completo, edad, genero, alcaldia)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO Usuario 
+    (nombre_usuario, contrasena, nombre_completo, edad, genero, alcaldia, actividad)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [usuario, contrasena, nombre_completo, edad, genero, alcaldia], (err, result) => {
+  db.query(sql, [
+    usuario,
+    contrasena,
+    nombre_completo,
+    edad,
+    genero,
+    alcaldia,
+    actividad
+  ], (err, result) => {
     if (err) {
-      console.error(err);
+      console.error("ERROR:", err);
       return res.status(500).json(err);
     }
 
