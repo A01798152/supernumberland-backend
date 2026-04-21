@@ -59,17 +59,18 @@ app.post('/login', (req, res) => {
 
 // REGISTER
 app.post('/register', (req, res) => {
-  let { usuario, contrasena, nombre_completo, edad, genero } = req.body;
+  let { usuario, contrasena, nombre_completo, edad, genero, alcaldia } = req.body;
 
   usuario = usuario.trim();
   contrasena = contrasena.trim();
+  alcaldia = alcaldia ? alcaldia.trim() : "";
 
   const sql = `
-    INSERT INTO Usuario (nombre_usuario, contrasena, nombre_completo, edad, genero)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO Usuario (nombre_usuario, contrasena, nombre_completo, edad, genero, alcaldia)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [usuario, contrasena, nombre_completo, edad, genero], (err, result) => {
+  db.query(sql, [usuario, contrasena, nombre_completo, edad, genero, alcaldia], (err, result) => {
     if (err) {
       console.error(err);
       return res.status(500).json(err);
