@@ -241,6 +241,20 @@ app.post('/seleccion', (req, res) => {
   );
 });
 
+// GET /perfil/:id_usuario
+app.get('/perfil/:id_usuario', (req, res) => {
+  const { id_usuario } = req.params;
+
+  db.query(
+    'SELECT nombre_usuario, nombre_completo, edad, genero, alcaldia, actividad FROM Usuario WHERE id_usuario = ?',
+    [id_usuario],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      if (result.length === 0) return res.json({ success: false });
+      res.json({ success: true, ...result[0] });
+    }
+  );
+});
 
 // SERVER
 const PORT = process.env.PORT || 3000;
