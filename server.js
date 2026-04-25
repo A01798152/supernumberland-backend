@@ -72,7 +72,7 @@ app.post('/register', (req, res) => {
   const sql = `
     INSERT INTO Usuario 
     (nombre_usuario, contrasena, nombre_completo, edad, genero, alcaldia, actividad, personaje_seleccionado, fondo_seleccionado)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 1, 4)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1, 7)
 `;
 
   db.query(sql, [
