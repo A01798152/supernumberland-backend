@@ -100,7 +100,7 @@ app.get('/tienda/:id_usuario', (req, res) => {
   const sql = `
     SELECT 
       t.id_item,
-      t.nombre_item,
+      t.nombre_item AS nombre,
       t.descripcion,
       t.precio,
       t.tipo,
