@@ -208,6 +208,37 @@ app.post('/comprar', (req, res) => {
       );
     }
   );
+});2
+
+// GET /seleccion/:id_usuario
+app.get('/seleccion/:id_usuario', (req, res) => {
+  const { id_usuario } = req.params;
+  db.query(
+    'SELECT personaje_seleccionado, fondo_seleccionado FROM Usuario WHERE id_usuario = ?',
+    [id_usuario],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      if (result.length === 0) return res.json({ success: false });
+      res.json({ success: true, ...result[0] });
+    }
+  );
+});
+
+// POST /seleccion
+app.post('/seleccion', (req, res) => {
+  const { id_usuario, tipo, id_item } = req.body;
+  // tipo: "personaje" o "fondo"
+
+  const campo = tipo === 'personaje' ? 'personaje_seleccionado' : 'fondo_seleccionado';
+
+  db.query(
+    `UPDATE Usuario SET ${campo} = ? WHERE id_usuario = ?`,
+    [id_item, id_usuario],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.json({ success: true });
+    }
+  );
 });
 
 
