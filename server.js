@@ -256,6 +256,29 @@ app.get('/perfil/:id_usuario', (req, res) => {
   );
 });
 
+// POST /sumar-monedas
+app.post('/sumar-monedas', (req, res) => {
+  const { id_usuario, cantidad } = req.body;
+
+  db.query(
+    'UPDATE Usuario SET monedas = monedas + ? WHERE id_usuario = ?',
+    [cantidad, id_usuario],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      
+      // Regresar el total actualizado
+      db.query(
+        'SELECT monedas FROM Usuario WHERE id_usuario = ?',
+        [id_usuario],
+        (err, result) => {
+          if (err) return res.status(500).json(err);
+          res.json({ success: true, monedas: result[0].monedas });
+        }
+      );
+    }
+  );
+});
+
 // SERVER
 const PORT = process.env.PORT || 3000;
 
