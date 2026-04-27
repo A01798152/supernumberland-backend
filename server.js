@@ -279,6 +279,57 @@ app.post('/sumar-monedas', (req, res) => {
   );
 });
 
+// GET /logros/:id_usuario — trae todos los logros y cuáles tiene el usuario
+app.get('/logros/:id_usuario', (req, res) => {
+  const { id_usuario } = req.params;
+
+  const sql = `
+    SELECT 
+      l.id_logro,
+      l.nombre,
+      l.descripcion,
+      l.icono,
+      IF(lu.id IS NOT NULL, 1, 0) AS desbloqueado,
+      lu.fecha_obtenido
+    FROM Logros l
+    LEFT JOIN LogrosUsuario lu 
+      ON l.id_logro = lu.id_logro AND lu.id_usuario = ?
+    ORDER BY l.id_logro
+  `;
+
+  db.query(sql, [id_usuario], (err, result) => {
+    if (err) return res.status(500).json(err);
+    res.json({ success: true, logros: result });
+  });
+});
+
+
+// POST /logros/desbloquear — desbloquea un logro si no lo tiene ya
+app.post('/logros/desbloquear', (req, res) => {
+  const { id_usuario, id_logro } = req.body;
+
+  // 1. Verificar si ya lo tiene
+  db.query(
+    'SELECT id FROM LogrosUsuario WHERE id_usuario = ? AND id_logro = ?',
+    [id_usuario, id_logro],
+    (err, existe) => {
+      if (err) return res.status(500).json(err);
+      if (existe.length > 0)
+        return res.json({ success: false, message: 'Logro ya desbloqueado' });
+
+      // 2. Insertar logro
+      db.query(
+        'INSERT INTO LogrosUsuario (id_usuario, id_logro) VALUES (?, ?)',
+        [id_usuario, id_logro],
+        (err) => {
+          if (err) return res.status(500).json(err);
+          res.json({ success: true, message: 'Logro desbloqueado' });
+        }
+      );
+    }
+  );
+});
+
 // SERVER
 const PORT = process.env.PORT || 3000;
 
