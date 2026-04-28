@@ -331,15 +331,15 @@ app.post('/logros/desbloquear', (req, res) => {
 });
 
   // POST /progreso/guardar — guarda nivel completado
-  app.post('/progreso/guardar', (req, res) => {
+    app.post('/progreso/guardar', (req, res) => {
     const { id_usuario, id_nivel, tipo } = req.body;
 
     db.query(
-      'INSERT IGNORE INTO Progreso (id_usuario, id_nivel, tipo, completado) VALUES (?, ?, ?, 1)',
+      'INSERT IGNORE INTO Progreso (id_usuario, id_nivel, completado, tipo) VALUES (?, ?, 1, ?)',
       [id_usuario, id_nivel, tipo],
-      (err) => {
-        if (err) return res.status(500).json(err);
-        res.json({ success: true });
+      (err, result) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json({ success: true, affectedRows: result.affectedRows });
       }
     );
   });
