@@ -68,12 +68,11 @@ app.post('/register', (req, res) => {
   alcaldia = alcaldia?.trim() || "";
   actividad = actividad?.trim() || "";
 
-
   const sql = `
     INSERT INTO Usuario 
     (nombre_usuario, contrasena, nombre_completo, edad, genero, alcaldia, actividad, personaje_seleccionado, fondo_seleccionado)
     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 7)
-`;
+  `;
 
   db.query(sql, [
     usuario,
@@ -93,7 +92,7 @@ app.post('/register', (req, res) => {
   });
 });
 
-// GET /tienda/:id_usuario - trae todos los items con si el usuario ya los tiene
+// GET /tienda/:id_usuario
 app.get('/tienda/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
 
@@ -118,7 +117,7 @@ app.get('/tienda/:id_usuario', (req, res) => {
 });
 
 
-// GET /monedas/:id_usuario - consulta monedas del usuario
+// GET /monedas/:id_usuario
 app.get('/monedas/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
 
@@ -134,11 +133,10 @@ app.get('/monedas/:id_usuario', (req, res) => {
 });
 
 
-// POST /comprar - descuenta monedas y registra la compra
+// POST /comprar
 app.post('/comprar', (req, res) => {
   const { id_usuario, id_item } = req.body;
 
-  // 1. Verificar que no lo haya comprado ya
   db.query(
     'SELECT * FROM InventarioUsuario WHERE id_usuario = ? AND id_item = ?',
     [id_usuario, id_item],
@@ -147,7 +145,6 @@ app.post('/comprar', (req, res) => {
       if (yaComprado.length > 0)
         return res.json({ success: false, message: "Ya tienes este item" });
 
-      // 2. Obtener precio del item y monedas del usuario
       db.query(
         'SELECT precio FROM Tienda WHERE id_item = ?',
         [id_item],
@@ -166,25 +163,21 @@ app.post('/comprar', (req, res) => {
 
               const monedas = userResult[0].monedas;
 
-              // 3. Verificar monedas suficientes
               if (monedas < precio)
                 return res.json({ success: false, message: "Monedas insuficientes" });
 
-              // 4. Descontar monedas
               db.query(
                 'UPDATE Usuario SET monedas = monedas - ? WHERE id_usuario = ?',
                 [precio, id_usuario],
                 (err) => {
                   if (err) return res.status(500).json(err);
 
-                  // 5. Agregar al inventario
                   db.query(
                     'INSERT INTO InventarioUsuario (id_usuario, id_item) VALUES (?, ?)',
                     [id_usuario, id_item],
                     (err) => {
                       if (err) return res.status(500).json(err);
 
-                      // 6. Registrar transacción
                       db.query(
                         'INSERT INTO Transacciones (id_usuario, id_item, monedas_gastadas) VALUES (?, ?, ?)',
                         [id_usuario, id_item, precio],
@@ -208,7 +201,7 @@ app.post('/comprar', (req, res) => {
       );
     }
   );
-});2
+});
 
 // GET /seleccion/:id_usuario
 app.get('/seleccion/:id_usuario', (req, res) => {
@@ -227,7 +220,6 @@ app.get('/seleccion/:id_usuario', (req, res) => {
 // POST /seleccion
 app.post('/seleccion', (req, res) => {
   const { id_usuario, tipo, id_item } = req.body;
-  // tipo: "personaje" o "fondo"
 
   const campo = tipo === 'personaje' ? 'personaje_seleccionado' : 'fondo_seleccionado';
 
@@ -266,7 +258,6 @@ app.post('/sumar-monedas', (req, res) => {
     (err) => {
       if (err) return res.status(500).json(err);
       
-      // Regresar el total actualizado
       db.query(
         'SELECT monedas FROM Usuario WHERE id_usuario = ?',
         [id_usuario],
@@ -279,7 +270,7 @@ app.post('/sumar-monedas', (req, res) => {
   );
 });
 
-// GET /logros/:id_usuario — trae todos los logros y cuáles tiene el usuario
+// GET /logros/:id_usuario
 app.get('/logros/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
 
@@ -303,12 +294,10 @@ app.get('/logros/:id_usuario', (req, res) => {
   });
 });
 
-
-// POST /logros/desbloquear — desbloquea un logro si no lo tiene ya
+// POST /logros/desbloquear
 app.post('/logros/desbloquear', (req, res) => {
   const { id_usuario, id_logro } = req.body;
 
-  // 1. Verificar si ya lo tiene
   db.query(
     'SELECT id FROM LogrosUsuario WHERE id_usuario = ? AND id_logro = ?',
     [id_usuario, id_logro],
@@ -317,7 +306,6 @@ app.post('/logros/desbloquear', (req, res) => {
       if (existe.length > 0)
         return res.json({ success: false, message: 'Logro ya desbloqueado' });
 
-      // 2. Insertar logro
       db.query(
         'INSERT INTO LogrosUsuario (id_usuario, id_logro) VALUES (?, ?)',
         [id_usuario, id_logro],
@@ -330,51 +318,67 @@ app.post('/logros/desbloquear', (req, res) => {
   );
 });
 
-  // POST /progreso/guardar — guarda nivel completado
-    app.post('/progreso/guardar', (req, res) => {
-    const { id_usuario, id_nivel, tipo } = req.body;
+// POST /progreso/guardar — guarda nivel completado con estrellas
+app.post('/progreso/guardar', (req, res) => {
+  const { id_usuario, id_nivel, tipo, estrellas } = req.body;
 
-    db.query(
-      'INSERT IGNORE INTO Progreso (id_usuario, id_nivel, completado, tipo) VALUES (?, ?, 1, ?)',
-      [id_usuario, id_nivel, tipo],
-      (err, result) => {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        res.json({ success: true, affectedRows: result.affectedRows });
-      }
-    );
-  });
+  db.query(
+    `INSERT INTO Progreso (id_usuario, id_nivel, completado, tipo, estrellas) 
+     VALUES (?, ?, 1, ?, ?)
+     ON DUPLICATE KEY UPDATE 
+     completado = 1,
+     estrellas = GREATEST(estrellas, ?)`,
+    [id_usuario, id_nivel, tipo, estrellas || 0, estrellas || 0],
+    (err, result) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, affectedRows: result.affectedRows });
+    }
+  );
+});
 
-  // GET /progreso/:id_usuario — trae el progreso del usuario
-  app.get('/progreso/:id_usuario', (req, res) => {
-    const { id_usuario } = req.params;
+// GET /progreso/:id_usuario
+app.get('/progreso/:id_usuario', (req, res) => {
+  const { id_usuario } = req.params;
 
-    // Niveles por tipo
-    db.query(
-      `SELECT tipo, COUNT(*) as completados 
-      FROM Progreso 
-      WHERE id_usuario = ? AND completado = 1 
-      GROUP BY tipo`,
-      [id_usuario],
-      (err, niveles) => {
-        if (err) return res.status(500).json(err);
+  db.query(
+    `SELECT tipo, COUNT(*) as completados 
+     FROM Progreso 
+     WHERE id_usuario = ? AND completado = 1 
+     GROUP BY tipo`,
+    [id_usuario],
+    (err, niveles) => {
+      if (err) return res.status(500).json(err);
 
-        // Items comprados en tienda
-        db.query(
-          'SELECT COUNT(*) as comprados FROM InventarioUsuario WHERE id_usuario = ?',
-          [id_usuario],
-          (err, tienda) => {
-            if (err) return res.status(500).json(err);
+      db.query(
+        'SELECT COUNT(*) as comprados FROM InventarioUsuario WHERE id_usuario = ?',
+        [id_usuario],
+        (err, tienda) => {
+          if (err) return res.status(500).json(err);
 
-            res.json({
-              success: true,
-              niveles: niveles,
-              items_comprados: tienda[0].comprados
-            });
-          }
-        );
-      }
-    );
-  });
+          res.json({
+            success: true,
+            niveles: niveles,
+            items_comprados: tienda[0].comprados
+          });
+        }
+      );
+    }
+  );
+});
+
+// GET /estrellas/:id_usuario/:tipo — trae estrellas por nivel para un tipo
+app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
+  const { id_usuario, tipo } = req.params;
+
+  db.query(
+    'SELECT id_nivel, estrellas FROM Progreso WHERE id_usuario = ? AND tipo = ? AND completado = 1',
+    [id_usuario, tipo],
+    (err, result) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, niveles: result });
+    }
+  );
+});
 
 // SERVER
 const PORT = process.env.PORT || 3000;
