@@ -330,6 +330,52 @@ app.post('/logros/desbloquear', (req, res) => {
   );
 });
 
+  // POST /progreso/guardar — guarda nivel completado
+  app.post('/progreso/guardar', (req, res) => {
+    const { id_usuario, id_nivel, tipo } = req.body;
+
+    db.query(
+      'INSERT IGNORE INTO Progreso (id_usuario, id_nivel, tipo, completado) VALUES (?, ?, ?, 1)',
+      [id_usuario, id_nivel, tipo],
+      (err) => {
+        if (err) return res.status(500).json(err);
+        res.json({ success: true });
+      }
+    );
+  });
+
+  // GET /progreso/:id_usuario — trae el progreso del usuario
+  app.get('/progreso/:id_usuario', (req, res) => {
+    const { id_usuario } = req.params;
+
+    // Niveles por tipo
+    db.query(
+      `SELECT tipo, COUNT(*) as completados 
+      FROM Progreso 
+      WHERE id_usuario = ? AND completado = 1 
+      GROUP BY tipo`,
+      [id_usuario],
+      (err, niveles) => {
+        if (err) return res.status(500).json(err);
+
+        // Items comprados en tienda
+        db.query(
+          'SELECT COUNT(*) as comprados FROM InventarioUsuario WHERE id_usuario = ?',
+          [id_usuario],
+          (err, tienda) => {
+            if (err) return res.status(500).json(err);
+
+            res.json({
+              success: true,
+              niveles: niveles,
+              items_comprados: tienda[0].comprados
+            });
+          }
+        );
+      }
+    );
+  });
+
 // SERVER
 const PORT = process.env.PORT || 3000;
 
