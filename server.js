@@ -380,6 +380,20 @@ app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
   );
 });
 
+// POST /logros/reclamar — marca un logro como reclamado
+app.post('/logros/reclamar', (req, res) => {
+  const { id_usuario, id_logro } = req.body;
+
+  db.query(
+    'UPDATE LogrosUsuario SET reclamado = 1 WHERE id_usuario = ? AND id_logro = ?',
+    [id_usuario, id_logro],
+    (err) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
 // SERVER
 const PORT = process.env.PORT || 3000;
 
