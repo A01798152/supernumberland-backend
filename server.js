@@ -281,6 +281,7 @@ app.get('/logros/:id_usuario', (req, res) => {
       l.descripcion,
       l.icono,
       IF(lu.id IS NOT NULL, 1, 0) AS desbloqueado,
+      IFNULL(lu.reclamado, 0) AS reclamado,
       lu.fecha_obtenido
     FROM Logros l
     LEFT JOIN LogrosUsuario lu 
@@ -318,7 +319,21 @@ app.post('/logros/desbloquear', (req, res) => {
   );
 });
 
-// POST /progreso/guardar — guarda nivel completado con estrellas
+// POST /logros/reclamar
+app.post('/logros/reclamar', (req, res) => {
+  const { id_usuario, id_logro } = req.body;
+
+  db.query(
+    'UPDATE LogrosUsuario SET reclamado = 1 WHERE id_usuario = ? AND id_logro = ?',
+    [id_usuario, id_logro],
+    (err) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+// POST /progreso/guardar
 app.post('/progreso/guardar', (req, res) => {
   const { id_usuario, id_nivel, tipo, estrellas } = req.body;
 
@@ -366,7 +381,7 @@ app.get('/progreso/:id_usuario', (req, res) => {
   );
 });
 
-// GET /estrellas/:id_usuario/:tipo — trae estrellas por nivel para un tipo
+// GET /estrellas/:id_usuario/:tipo
 app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
   const { id_usuario, tipo } = req.params;
 
@@ -376,20 +391,6 @@ app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
     (err, result) => {
       if (err) return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, niveles: result });
-    }
-  );
-});
-
-// POST /logros/reclamar — marca un logro como reclamado
-app.post('/logros/reclamar', (req, res) => {
-  const { id_usuario, id_logro } = req.body;
-
-  db.query(
-    'UPDATE LogrosUsuario SET reclamado = 1 WHERE id_usuario = ? AND id_logro = ?',
-    [id_usuario, id_logro],
-    (err) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true });
     }
   );
 });
