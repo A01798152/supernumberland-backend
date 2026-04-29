@@ -21,10 +21,7 @@ app.post('/login', (req, res) => {
   usuario = usuario.trim();
   contrasena = contrasena.trim();
 
-  const sql = `
-    SELECT * FROM Usuario 
-    WHERE nombre_usuario = ?
-  `;
+  const sql = `SELECT * FROM Usuario WHERE nombre_usuario = ?`;
 
   db.query(sql, [usuario], (err, result) => {
     if (err) {
@@ -42,6 +39,9 @@ app.post('/login', (req, res) => {
       return res.json({ success: false, message: "Contraseña incorrecta" });
     }
 
+    // ✅ Actualizar última sesión
+    db.query('UPDATE Usuario SET ultima_sesion = NOW() WHERE id_usuario = ?', [user.id_usuario]);
+
     res.json({
       success: true,
       user: {
@@ -51,7 +51,7 @@ app.post('/login', (req, res) => {
         edad: user.edad,
         genero: user.genero,
         alcaldia: user.alcaldia,
-        actividad: user.actividad 
+        actividad: user.actividad
       }
     });
   });
@@ -74,23 +74,15 @@ app.post('/register', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 7)
   `;
 
-  db.query(sql, [
-    usuario,
-    contrasena,
-    nombre_completo,
-    edad,
-    genero,
-    alcaldia,
-    actividad
-  ], (err, result) => {
+  db.query(sql, [usuario, contrasena, nombre_completo, edad, genero, alcaldia, actividad], (err, result) => {
     if (err) {
       console.error("ERROR:", err);
       return res.status(500).json(err);
     }
-
     res.json({ success: true });
   });
 });
+
 
 // GET /tienda/:id_usuario
 app.get('/tienda/:id_usuario', (req, res) => {
@@ -121,15 +113,11 @@ app.get('/tienda/:id_usuario', (req, res) => {
 app.get('/monedas/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
 
-  db.query(
-    'SELECT monedas FROM Usuario WHERE id_usuario = ?',
-    [id_usuario],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      if (result.length === 0) return res.json({ success: false, message: "Usuario no encontrado" });
-      res.json({ success: true, monedas: result[0].monedas });
-    }
-  );
+  db.query('SELECT monedas FROM Usuario WHERE id_usuario = ?', [id_usuario], (err, result) => {
+    if (err) return res.status(500).json(err);
+    if (result.length === 0) return res.json({ success: false, message: "Usuario no encontrado" });
+    res.json({ success: true, monedas: result[0].monedas });
+  });
 });
 
 
@@ -137,138 +125,93 @@ app.get('/monedas/:id_usuario', (req, res) => {
 app.post('/comprar', (req, res) => {
   const { id_usuario, id_item } = req.body;
 
-  db.query(
-    'SELECT * FROM InventarioUsuario WHERE id_usuario = ? AND id_item = ?',
-    [id_usuario, id_item],
-    (err, yaComprado) => {
+  db.query('SELECT * FROM InventarioUsuario WHERE id_usuario = ? AND id_item = ?', [id_usuario, id_item], (err, yaComprado) => {
+    if (err) return res.status(500).json(err);
+    if (yaComprado.length > 0)
+      return res.json({ success: false, message: "Ya tienes este item" });
+
+    db.query('SELECT precio FROM Tienda WHERE id_item = ?', [id_item], (err, itemResult) => {
       if (err) return res.status(500).json(err);
-      if (yaComprado.length > 0)
-        return res.json({ success: false, message: "Ya tienes este item" });
+      if (itemResult.length === 0)
+        return res.json({ success: false, message: "Item no encontrado" });
 
-      db.query(
-        'SELECT precio FROM Tienda WHERE id_item = ?',
-        [id_item],
-        (err, itemResult) => {
+      const precio = itemResult[0].precio;
+
+      db.query('SELECT monedas FROM Usuario WHERE id_usuario = ?', [id_usuario], (err, userResult) => {
+        if (err) return res.status(500).json(err);
+
+        const monedas = userResult[0].monedas;
+
+        if (monedas < precio)
+          return res.json({ success: false, message: "Monedas insuficientes" });
+
+        db.query('UPDATE Usuario SET monedas = monedas - ? WHERE id_usuario = ?', [precio, id_usuario], (err) => {
           if (err) return res.status(500).json(err);
-          if (itemResult.length === 0)
-            return res.json({ success: false, message: "Item no encontrado" });
 
-          const precio = itemResult[0].precio;
+          db.query('INSERT INTO InventarioUsuario (id_usuario, id_item) VALUES (?, ?)', [id_usuario, id_item], (err) => {
+            if (err) return res.status(500).json(err);
 
-          db.query(
-            'SELECT monedas FROM Usuario WHERE id_usuario = ?',
-            [id_usuario],
-            (err, userResult) => {
+            db.query('INSERT INTO Transacciones (id_usuario, id_item, monedas_gastadas) VALUES (?, ?, ?)', [id_usuario, id_item, precio], (err) => {
               if (err) return res.status(500).json(err);
-
-              const monedas = userResult[0].monedas;
-
-              if (monedas < precio)
-                return res.json({ success: false, message: "Monedas insuficientes" });
-
-              db.query(
-                'UPDATE Usuario SET monedas = monedas - ? WHERE id_usuario = ?',
-                [precio, id_usuario],
-                (err) => {
-                  if (err) return res.status(500).json(err);
-
-                  db.query(
-                    'INSERT INTO InventarioUsuario (id_usuario, id_item) VALUES (?, ?)',
-                    [id_usuario, id_item],
-                    (err) => {
-                      if (err) return res.status(500).json(err);
-
-                      db.query(
-                        'INSERT INTO Transacciones (id_usuario, id_item, monedas_gastadas) VALUES (?, ?, ?)',
-                        [id_usuario, id_item, precio],
-                        (err) => {
-                          if (err) return res.status(500).json(err);
-
-                          res.json({ 
-                            success: true, 
-                            message: "Compra exitosa",
-                            monedas_restantes: monedas - precio
-                          });
-                        }
-                      );
-                    }
-                  );
-                }
-              );
-            }
-          );
-        }
-      );
-    }
-  );
+              res.json({ success: true, message: "Compra exitosa", monedas_restantes: monedas - precio });
+            });
+          });
+        });
+      });
+    });
+  });
 });
+
 
 // GET /seleccion/:id_usuario
 app.get('/seleccion/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
-  db.query(
-    'SELECT personaje_seleccionado, fondo_seleccionado FROM Usuario WHERE id_usuario = ?',
-    [id_usuario],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      if (result.length === 0) return res.json({ success: false });
-      res.json({ success: true, ...result[0] });
-    }
-  );
+  db.query('SELECT personaje_seleccionado, fondo_seleccionado FROM Usuario WHERE id_usuario = ?', [id_usuario], (err, result) => {
+    if (err) return res.status(500).json(err);
+    if (result.length === 0) return res.json({ success: false });
+    res.json({ success: true, ...result[0] });
+  });
 });
+
 
 // POST /seleccion
 app.post('/seleccion', (req, res) => {
   const { id_usuario, tipo, id_item } = req.body;
-
   const campo = tipo === 'personaje' ? 'personaje_seleccionado' : 'fondo_seleccionado';
 
-  db.query(
-    `UPDATE Usuario SET ${campo} = ? WHERE id_usuario = ?`,
-    [id_item, id_usuario],
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ success: true });
-    }
-  );
+  db.query(`UPDATE Usuario SET ${campo} = ? WHERE id_usuario = ?`, [id_item, id_usuario], (err) => {
+    if (err) return res.status(500).json(err);
+    res.json({ success: true });
+  });
 });
+
 
 // GET /perfil/:id_usuario
 app.get('/perfil/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
 
-  db.query(
-    'SELECT nombre_usuario, nombre_completo, edad, genero, alcaldia, actividad FROM Usuario WHERE id_usuario = ?',
-    [id_usuario],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      if (result.length === 0) return res.json({ success: false });
-      res.json({ success: true, ...result[0] });
-    }
-  );
+  db.query('SELECT nombre_usuario, nombre_completo, edad, genero, alcaldia, actividad FROM Usuario WHERE id_usuario = ?', [id_usuario], (err, result) => {
+    if (err) return res.status(500).json(err);
+    if (result.length === 0) return res.json({ success: false });
+    res.json({ success: true, ...result[0] });
+  });
 });
+
 
 // POST /sumar-monedas
 app.post('/sumar-monedas', (req, res) => {
   const { id_usuario, cantidad } = req.body;
 
-  db.query(
-    'UPDATE Usuario SET monedas = monedas + ? WHERE id_usuario = ?',
-    [cantidad, id_usuario],
-    (err) => {
+  db.query('UPDATE Usuario SET monedas = monedas + ? WHERE id_usuario = ?', [cantidad, id_usuario], (err) => {
+    if (err) return res.status(500).json(err);
+
+    db.query('SELECT monedas FROM Usuario WHERE id_usuario = ?', [id_usuario], (err, result) => {
       if (err) return res.status(500).json(err);
-      
-      db.query(
-        'SELECT monedas FROM Usuario WHERE id_usuario = ?',
-        [id_usuario],
-        (err, result) => {
-          if (err) return res.status(500).json(err);
-          res.json({ success: true, monedas: result[0].monedas });
-        }
-      );
-    }
-  );
+      res.json({ success: true, monedas: result[0].monedas });
+    });
+  });
 });
+
 
 // GET /logros/:id_usuario
 app.get('/logros/:id_usuario', (req, res) => {
@@ -295,43 +238,34 @@ app.get('/logros/:id_usuario', (req, res) => {
   });
 });
 
+
 // POST /logros/desbloquear
 app.post('/logros/desbloquear', (req, res) => {
   const { id_usuario, id_logro } = req.body;
 
-  db.query(
-    'SELECT id FROM LogrosUsuario WHERE id_usuario = ? AND id_logro = ?',
-    [id_usuario, id_logro],
-    (err, existe) => {
-      if (err) return res.status(500).json(err);
-      if (existe.length > 0)
-        return res.json({ success: false, message: 'Logro ya desbloqueado' });
+  db.query('SELECT id FROM LogrosUsuario WHERE id_usuario = ? AND id_logro = ?', [id_usuario, id_logro], (err, existe) => {
+    if (err) return res.status(500).json(err);
+    if (existe.length > 0)
+      return res.json({ success: false, message: 'Logro ya desbloqueado' });
 
-      db.query(
-        'INSERT INTO LogrosUsuario (id_usuario, id_logro) VALUES (?, ?)',
-        [id_usuario, id_logro],
-        (err) => {
-          if (err) return res.status(500).json(err);
-          res.json({ success: true, message: 'Logro desbloqueado' });
-        }
-      );
-    }
-  );
+    db.query('INSERT INTO LogrosUsuario (id_usuario, id_logro) VALUES (?, ?)', [id_usuario, id_logro], (err) => {
+      if (err) return res.status(500).json(err);
+      res.json({ success: true, message: 'Logro desbloqueado' });
+    });
+  });
 });
+
 
 // POST /logros/reclamar
 app.post('/logros/reclamar', (req, res) => {
   const { id_usuario, id_logro } = req.body;
 
-  db.query(
-    'UPDATE LogrosUsuario SET reclamado = 1 WHERE id_usuario = ? AND id_logro = ?',
-    [id_usuario, id_logro],
-    (err) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true });
-    }
-  );
+  db.query('UPDATE LogrosUsuario SET reclamado = 1 WHERE id_usuario = ? AND id_logro = ?', [id_usuario, id_logro], (err) => {
+    if (err) return res.status(500).json({ success: false, error: err.message });
+    res.json({ success: true });
+  });
 });
+
 
 // POST /progreso/guardar
 app.post('/progreso/guardar', (req, res) => {
@@ -351,6 +285,7 @@ app.post('/progreso/guardar', (req, res) => {
   );
 });
 
+
 // GET /progreso/:id_usuario
 app.get('/progreso/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
@@ -364,22 +299,14 @@ app.get('/progreso/:id_usuario', (req, res) => {
     (err, niveles) => {
       if (err) return res.status(500).json(err);
 
-      db.query(
-        'SELECT COUNT(*) as comprados FROM InventarioUsuario WHERE id_usuario = ?',
-        [id_usuario],
-        (err, tienda) => {
-          if (err) return res.status(500).json(err);
-
-          res.json({
-            success: true,
-            niveles: niveles,
-            items_comprados: tienda[0].comprados
-          });
-        }
-      );
+      db.query('SELECT COUNT(*) as comprados FROM InventarioUsuario WHERE id_usuario = ?', [id_usuario], (err, tienda) => {
+        if (err) return res.status(500).json(err);
+        res.json({ success: true, niveles: niveles, items_comprados: tienda[0].comprados });
+      });
     }
   );
 });
+
 
 // GET /estrellas/:id_usuario/:tipo
 app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
@@ -395,6 +322,7 @@ app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
   );
 });
 
+
 // GET /temas-desbloqueados/:id_usuario
 app.get('/temas-desbloqueados/:id_usuario', (req, res) => {
   const { id_usuario } = req.params;
@@ -408,7 +336,6 @@ app.get('/temas-desbloqueados/:id_usuario', (req, res) => {
     (err, result) => {
       if (err) return res.status(500).json({ success: false, error: err.message });
 
-      // Un tema está completo si tiene 10 niveles con 3 estrellas
       let sumaCompleta = false;
       let restaCompleta = false;
       let multiCompleta = false;
@@ -427,6 +354,81 @@ app.get('/temas-desbloqueados/:id_usuario', (req, res) => {
     }
   );
 });
+
+
+// ✅ GET /dashboard — datos para el panel administrativo
+app.get('/dashboard', (req, res) => {
+  // Todos los usuarios
+  db.query(
+    `SELECT id_usuario, nombre_usuario, nombre_completo, edad, genero, 
+            alcaldia, monedas, ultima_sesion, actividad 
+     FROM Usuario ORDER BY monedas DESC`,
+    (err, usuarios) => {
+      if (err) return res.status(500).json(err);
+
+      // Progreso por tema por usuario
+      db.query(
+        `SELECT id_usuario, tipo, 
+                COUNT(*) as niveles_completados,
+                ROUND(AVG(estrellas), 1) as promedio_estrellas,
+                SUM(CASE WHEN estrellas = 3 THEN 1 ELSE 0 END) as niveles_perfectos
+         FROM Progreso 
+         WHERE completado = 1 
+         GROUP BY id_usuario, tipo`,
+        (err, progreso) => {
+          if (err) return res.status(500).json(err);
+
+          // Logros por usuario
+          db.query(
+            `SELECT id_usuario, COUNT(*) as logros_desbloqueados 
+             FROM LogrosUsuario 
+             GROUP BY id_usuario`,
+            (err, logros) => {
+              if (err) return res.status(500).json(err);
+
+              // Stats globales
+              db.query(
+                `SELECT 
+                   COUNT(DISTINCT id_usuario) as total_alumnos,
+                   ROUND(AVG(estrellas), 1) as promedio_estrellas_global
+                 FROM Progreso WHERE completado = 1`,
+                (err, stats) => {
+                  if (err) return res.status(500).json(err);
+
+                  // Top 5 por estrellas
+                  db.query(
+                    `SELECT u.nombre_usuario, u.nombre_completo,
+                            ROUND(AVG(p.estrellas), 1) AS avg_estrellas,
+                            COUNT(p.id_progreso) as niveles_completados
+                     FROM Usuario u
+                     JOIN Progreso p ON u.id_usuario = p.id_usuario
+                     WHERE p.completado = 1
+                     GROUP BY u.id_usuario
+                     ORDER BY avg_estrellas DESC
+                     LIMIT 5`,
+                    (err, top5) => {
+                      if (err) return res.status(500).json(err);
+
+                      res.json({
+                        success: true,
+                        usuarios,
+                        progreso,
+                        logros,
+                        stats: stats[0],
+                        top5
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
 
 // SERVER
 const PORT = process.env.PORT || 3000;
