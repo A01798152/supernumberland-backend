@@ -395,6 +395,39 @@ app.get('/estrellas/:id_usuario/:tipo', (req, res) => {
   );
 });
 
+// GET /temas-desbloqueados/:id_usuario
+app.get('/temas-desbloqueados/:id_usuario', (req, res) => {
+  const { id_usuario } = req.params;
+
+  db.query(
+    `SELECT tipo, COUNT(*) as niveles_3_estrellas
+     FROM Progreso
+     WHERE id_usuario = ? AND estrellas = 3 AND completado = 1
+     GROUP BY tipo`,
+    [id_usuario],
+    (err, result) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+
+      // Un tema está completo si tiene 10 niveles con 3 estrellas
+      let sumaCompleta = false;
+      let restaCompleta = false;
+      let multiCompleta = false;
+
+      result.forEach(r => {
+        if (r.tipo === 'suma' && r.niveles_3_estrellas >= 10) sumaCompleta = true;
+        if (r.tipo === 'resta' && r.niveles_3_estrellas >= 10) restaCompleta = true;
+        if (r.tipo === 'multiplicacion' && r.niveles_3_estrellas >= 10) multiCompleta = true;
+      });
+
+      res.json({
+        success: true,
+        desbloquear_multiplicacion: sumaCompleta && restaCompleta,
+        desbloquear_division: multiCompleta
+      });
+    }
+  );
+});
+
 // SERVER
 const PORT = process.env.PORT || 3000;
 
